@@ -5,23 +5,13 @@ import { Button } from "@/components/ui/button"
 import { Film, History, Home, Menu, X, User, LogOut, Users } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { getCurrentUser, logout } from "@/lib/auth"
-import type { User as UserType } from "@/types/user"
+import { useAuth } from "@/contexts/auth-context"
 import { useState, useEffect } from "react"
 
 export function Header() {
   const pathname = usePathname()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
-  const [currentUser, setCurrentUser] = useState<UserType | null>(null)
-
-  useEffect(() => {
-    const fetchUser = async () => {
-      const user = await getCurrentUser()
-      setCurrentUser(user)
-    }
-
-    fetchUser()
-  }, [])
+  const { user: currentUser, isAuthenticated, logout: handleLogout, loading } = useAuth()
 
   return (
     <>
@@ -59,7 +49,7 @@ export function Header() {
                 </Link>
               </Button>
 
-              {currentUser ? (
+              {isAuthenticated ? (
                 <>
                   <Button
                     asChild
@@ -72,9 +62,9 @@ export function Header() {
                   >
                     <Link href="/profile" className="flex items-center gap-2">
                       <div className="flex items-center gap-2">
-                        {currentUser?.avatar ? (
+                        {currentUser?.avatar_url ? (
                           <img
-                            src={currentUser.avatar || "/placeholder.svg"}
+                            src={currentUser.avatar_url || "/placeholder.svg"}
                             alt={currentUser.username}
                             className="w-5 h-5 rounded-full object-cover border border-purple-400/30"
                           />
@@ -119,8 +109,8 @@ export function Header() {
 
                   <Button
                     onClick={() => {
-                      logout()
-                      setCurrentUser(null)
+                      handleLogout()
+                      setIsMobileMenuOpen(false)
                       window.location.href = "/"
                     }}
                     variant="ghost"
@@ -174,7 +164,7 @@ export function Header() {
                 Accueil
               </Link>
             </Button>
-            {currentUser ? (
+            {isAuthenticated ? (
               <>
                 <Button
                   asChild
@@ -187,9 +177,9 @@ export function Header() {
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
                   <Link href="/profile" className="flex items-center gap-2">
-                    {currentUser?.avatar ? (
+                    {currentUser?.avatar_url ? (
                       <img
-                        src={currentUser.avatar || "/placeholder.svg"}
+                        src={currentUser.avatar_url || "/placeholder.svg"}
                         alt={currentUser.username}
                         className="w-4 h-4 rounded-full object-cover border border-purple-400/30"
                       />
@@ -231,8 +221,8 @@ export function Header() {
                 </Button>
                 <Button
                   onClick={() => {
-                    logout()
-                    setCurrentUser(null)
+                    handleLogout()
+                    setIsMobileMenuOpen(false)
                     setIsMobileMenuOpen(false)
                     window.location.href = "/"
                   }}

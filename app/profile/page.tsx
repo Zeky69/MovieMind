@@ -8,49 +8,55 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, Heart, X, Zap, Users, Calendar, Settings } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { getCurrentUser, getAllUsers } from "@/lib/auth"
+import { useAuth } from "@/contexts/auth-context"
+import { useMyProfile, useFollowStats, useUserConnections } from "@/hooks/use-user"
 import { mockMovies } from "@/data/mock-movies"
 import { MovieCard } from "@/components/movie-card"
 import type { User } from "@/types/user"
 import Link from "next/link"
 
 export default function ProfilePage() {
-  const [user, setUser] = useState<User | null>(null)
-  const [allUsers, setAllUsers] = useState<User[]>([])
+  const { user, isAuthenticated } = useAuth()
+  const { user: profileUser, loading, error } = useMyProfile()
+  const { stats } = useFollowStats(user?.id || 0)
+  const { users: followers } = useUserConnections(user?.id || 0, 'followers')
+  const { users: following } = useUserConnections(user?.id || 0, 'following')
   const router = useRouter()
 
   useEffect(() => {
-    const currentUser = getCurrentUser()
-    if (!currentUser) {
+    if (!isAuthenticated) {
       router.push("/login")
-      return
     }
+  }, [isAuthenticated, router])
 
-    setUser(currentUser)
-    setAllUsers(getAllUsers())
-  }, [router])
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-400"></div>
+      </div>
+    )
+  }
 
-  if (!user) {
+  if (error || !user) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <p className="text-gray-400 mb-4">Vous devez être connecté pour voir cette page</p>
+          <p className="text-red-400 mb-4">Erreur lors du chargement du profil</p>
           <Button onClick={() => router.push("/login")}>Se connecter</Button>
         </div>
       </div>
     )
   }
 
-  const likedMovies = mockMovies.filter((movie) => user.likedMovies.includes(movie.id))
-  const dislikedMovies = mockMovies.filter((movie) => user.dislikedMovies.includes(movie.id))
-  const lovedMovies = mockMovies.filter((movie) => user.lovedMovies.includes(movie.id))
-  const watchlistMovies = mockMovies.filter((movie) => user.watchlist.includes(movie.id))
+  // Pour l'instant, on utilise des données factices pour les films
+  // Ces données devront être récupérées depuis le backend plus tard
+  const likedMovies = mockMovies.slice(0, 3) // Films aimés factices
+  const dislikedMovies = mockMovies.slice(3, 5) // Films non aimés factices
+  const lovedMovies = mockMovies.slice(0, 2) // Films adorés factices
+  const watchlistMovies = mockMovies.slice(5, 8) // Watchlist factice
 
-  const followers = allUsers.filter((u) => user.followers.includes(u.id))
-  const following = allUsers.filter((u) => user.following.includes(u.id))
-
-  const formatDate = (timestamp: number) => {
-    return new Date(timestamp).toLocaleDateString("fr-FR", {
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString("fr-FR", {
       year: "numeric",
       month: "long",
     })
@@ -81,7 +87,7 @@ export default function ProfilePage() {
           <div className="flex flex-col md:flex-row items-center gap-6">
             <div className="relative">
               <img
-                src={user.avatar || "/placeholder.svg?height=120&width=120"}
+                src={user.avatar_url || "/placeholder.svg?height=120&width=120"}
                 alt={user.username}
                 className="w-24 h-24 rounded-full object-cover border-4 border-purple-400/30"
               />
@@ -89,27 +95,37 @@ export default function ProfilePage() {
             </div>
 
             <div className="flex-1 text-center md:text-left">
-              <h1 className="text-3xl font-bold text-white mb-2">@{user.username}</h1>
+              <h1 className="text-3xl font-bold text-white mb-2">
+                {user.first_name && user.last_name 
+                  ? `${user.first_name} ${user.last_name}`
+                  : `@${user.username}`
+                }
+              </h1>
+              <p className="text-gray-400 mb-2">@{user.username}</p>
               {user.bio && <p className="text-gray-300 mb-4">{user.bio}</p>}
 
               <div className="flex flex-wrap justify-center md:justify-start gap-6 text-sm">
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-purple-400">{user.followers.length}</div>
+                  <div className="text-2xl font-bold text-purple-400">
+                    {stats?.followers_count || 0}
+                  </div>
                   <div className="text-gray-400">Abonnés</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-purple-400">{user.following.length}</div>
+                  <div className="text-2xl font-bold text-purple-400">
+                    {stats?.following_count || 0}
+                  </div>
                   <div className="text-gray-400">Abonnements</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-purple-400">{user.likedMovies.length}</div>
+                  <div className="text-2xl font-bold text-purple-400">{likedMovies.length}</div>
                   <div className="text-gray-400">Films aimés</div>
                 </div>
               </div>
 
               <div className="flex items-center justify-center md:justify-start gap-2 mt-4 text-sm text-gray-400">
                 <Calendar className="w-4 h-4" />
-                Membre depuis {formatDate(user.createdAt)}
+                Membre depuis {formatDate(user.created_at)}
               </div>
             </div>
           </div>
@@ -256,7 +272,7 @@ export default function ProfilePage() {
                           <CardContent className="p-4">
                             <div className="flex items-center gap-4">
                               <img
-                                src={friend.avatar || "/placeholder.svg?height=50&width=50"}
+                                src={friend.avatar_url || "/placeholder.svg?height=50&width=50"}
                                 alt={friend.username}
                                 className="w-12 h-12 rounded-full object-cover"
                               />
@@ -302,7 +318,7 @@ export default function ProfilePage() {
                           <CardContent className="p-4">
                             <div className="flex items-center gap-4">
                               <img
-                                src={follower.avatar || "/placeholder.svg?height=50&width=50"}
+                                src={follower.avatar_url || "/placeholder.svg?height=50&width=50"}
                                 alt={follower.username}
                                 className="w-12 h-12 rounded-full object-cover"
                               />

@@ -5,13 +5,13 @@ import { motion, AnimatePresence } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { ArrowLeft, MessageCircle } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { getMovieRecommendations } from "@/lib/api"
+import { getMovieRecommendations } from "@/lib/movie-api"
 import { Loader } from "@/components/loader"
 import { MovieDiscovery } from "@/components/movie-discovery"
 import { ConversationPanel } from "@/components/conversation-panel"
 import type { Movie } from "@/types/movie"
 import type { SwipeAction } from "@/types/chat"
-import { getCurrentUser, addMovieToUserList } from "@/lib/auth"
+import { useAuth } from "@/contexts/auth-context"
 import type { User } from "@/types/user"
 
 export default function ResultsPage() {
@@ -26,13 +26,15 @@ export default function ResultsPage() {
     disliked: [] as Movie[],
     loved: [] as Movie[],
   })
-  const [currentUser, setCurrentUser] = useState<User | null>(null)
+  const { user: currentUser, isAuthenticated } = useAuth()
   const router = useRouter()
 
   useEffect(() => {
-    const user = getCurrentUser()
-    setCurrentUser(user)
-  }, [])
+    if (!isAuthenticated) {
+      router.push("/login")
+      return
+    }
+  }, [isAuthenticated, router])
 
   useEffect(() => {
     const initializeDiscovery = async () => {
@@ -63,15 +65,16 @@ export default function ResultsPage() {
 
   const handleSwipe = (action: SwipeAction, movie: Movie) => {
     // Save to user preferences if logged in
-    if (currentUser) {
-      if (action === "like") {
-        addMovieToUserList(currentUser.id, movie.id, "liked")
-      } else if (action === "dislike") {
-        addMovieToUserList(currentUser.id, movie.id, "disliked")
-      } else if (action === "love") {
-        addMovieToUserList(currentUser.id, movie.id, "loved")
-      }
-    }
+    // TODO: Implémenter la sauvegarde des préférences utilisateur via le backend
+    // if (currentUser) {
+    //   if (action === "like") {
+    //     addMovieToUserList(currentUser.id, movie.id, "liked")
+    //   } else if (action === "dislike") {
+    //     addMovieToUserList(currentUser.id, movie.id, "disliked")
+    //   } else if (action === "love") {
+    //     addMovieToUserList(currentUser.id, movie.id, "loved")
+    //   }
+    // }
 
     const newPreferences = { ...userPreferences }
 

@@ -10,45 +10,54 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Film, Mail, Lock, User, ArrowLeft } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { login, register, initializeUsers } from "@/lib/auth"
 import { useToast } from "@/hooks/use-toast"
+import { useAuth } from "@/contexts/auth-context"
+import { ApiError } from "@/services"
 import Link from "next/link"
 
 export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [loginForm, setLoginForm] = useState({ email: "", password: "" })
-  const [registerForm, setRegisterForm] = useState({ username: "", email: "", password: "", confirmPassword: "" })
+  const [registerForm, setRegisterForm] = useState({ username: "", email: "", password: "", confirmPassword: "", first_name: "", last_name: "" })
   const router = useRouter()
   const { toast } = useToast()
+  const { login, register, isAuthenticated } = useAuth()
 
+  // Rediriger si déjà authentifié
   useEffect(() => {
-    initializeUsers()
-  }, [])
+    if (isAuthenticated) {
+      router.push("/")
+    }
+  }, [isAuthenticated, router])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
 
     try {
-      const result = login(loginForm.email, loginForm.password)
+      await login({
+        email: loginForm.email,
+        password: loginForm.password
+      })
 
-      if (result.success) {
-        toast({
-          title: "Connexion réussie ! 🎬",
-          description: `Bienvenue ${result.user?.username}`,
-        })
-        router.push("/")
-      } else {
-        toast({
-          title: "Erreur de connexion",
-          description: result.error,
-          variant: "destructive",
-        })
-      }
-    } catch (error) {
       toast({
-        title: "Erreur",
-        description: "Une erreur est survenue",
+        title: "Connexion réussie ! 🎬",
+        description: "Bienvenue sur MovieMind",
+      })
+      router.push("/")
+    } catch (error) {
+      console.error('Login error:', error)
+      let errorMessage = "Une erreur est survenue"
+      
+      if (error instanceof ApiError) {
+        errorMessage = error.message
+      } else if (error instanceof Error) {
+        errorMessage = error.message
+      }
+
+      toast({
+        title: "Erreur de connexion",
+        description: errorMessage,
         variant: "destructive",
       })
     } finally {
@@ -68,28 +77,44 @@ export default function LoginPage() {
       return
     }
 
+    if (registerForm.password.length < 6) {
+      toast({
+        title: "Erreur",
+        description: "Le mot de passe doit contenir au moins 6 caractères",
+        variant: "destructive",
+      })
+      return
+    }
+
     setIsLoading(true)
 
     try {
-      const result = register(registerForm.username, registerForm.email, registerForm.password)
+      await register({
+        username: registerForm.username,
+        email: registerForm.email,
+        password: registerForm.password,
+        first_name: registerForm.first_name,
+        last_name: registerForm.last_name
+      })
 
-      if (result.success) {
-        toast({
-          title: "Compte créé ! 🎉",
-          description: `Bienvenue ${result.user?.username}`,
-        })
-        router.push("/")
-      } else {
-        toast({
-          title: "Erreur d'inscription",
-          description: result.error,
-          variant: "destructive",
-        })
-      }
-    } catch (error) {
       toast({
-        title: "Erreur",
-        description: "Une erreur est survenue",
+        title: "Compte créé ! 🎉",
+        description: "Bienvenue sur MovieMind",
+      })
+      router.push("/")
+    } catch (error) {
+      console.error('Register error:', error)
+      let errorMessage = "Une erreur est survenue"
+      
+      if (error instanceof ApiError) {
+        errorMessage = error.message
+      } else if (error instanceof Error) {
+        errorMessage = error.message
+      }
+
+      toast({
+        title: "Erreur d'inscription",
+        description: errorMessage,
         variant: "destructive",
       })
     } finally {
@@ -181,6 +206,28 @@ export default function LoginPage() {
                           required
                         />
                       </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="relative">
+                          <User className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
+                          <Input
+                            type="text"
+                            placeholder="Prénom"
+                            value={registerForm.first_name}
+                            onChange={(e) => setRegisterForm({ ...registerForm, first_name: e.target.value })}
+                            className="pl-10 bg-white/5 border-white/20 text-white"
+                          />
+                        </div>
+                        <div className="relative">
+                          <User className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
+                          <Input
+                            type="text"
+                            placeholder="Nom"
+                            value={registerForm.last_name}
+                            onChange={(e) => setRegisterForm({ ...registerForm, last_name: e.target.value })}
+                            className="pl-10 bg-white/5 border-white/20 text-white"
+                          />
+                        </div>
+                      </div>
                       <div className="relative">
                         <Mail className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
                         <Input
@@ -196,11 +243,12 @@ export default function LoginPage() {
                         <Lock className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
                         <Input
                           type="password"
-                          placeholder="Mot de passe"
+                          placeholder="Mot de passe (min. 6 caractères)"
                           value={registerForm.password}
                           onChange={(e) => setRegisterForm({ ...registerForm, password: e.target.value })}
                           className="pl-10 bg-white/5 border-white/20 text-white"
                           required
+                          minLength={6}
                         />
                       </div>
                       <div className="relative">

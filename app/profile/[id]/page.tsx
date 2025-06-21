@@ -8,67 +8,89 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, Heart, Zap, Users, Calendar, UserPlus, UserMinus } from "lucide-react"
 import { useRouter, useParams } from "next/navigation"
-import { getCurrentUser, getUserById, followUser, unfollowUser, getAllUsers } from "@/lib/auth"
+import { useAuth } from "@/contexts/auth-context"
+import { useUserProfile, useFollow, useFollowStats } from "@/hooks/use-user"
+import { UserService } from "@/services/user.service"
 import { mockMovies } from "@/data/mock-movies"
 import { MovieCard } from "@/components/movie-card"
 import type { User } from "@/types/user"
 import { useToast } from "@/hooks/use-toast"
 
 export default function UserProfilePage() {
-  const [currentUser, setCurrentUser] = useState<User | null>(null)
-  const [profileUser, setProfileUser] = useState<User | null>(null)
-  const [isFollowing, setIsFollowing] = useState(false)
-  const [isLoading, setIsLoading] = useState(true)
+  const { user: currentUser, loading: authLoading } = useAuth()
   const router = useRouter()
   const params = useParams()
   const { toast } = useToast()
+  
+  const userId = parseInt(params.id as string, 10)
+  
+  // Get profile user data
+  const { user: profileUser, loading: profileLoading, error: profileError } = useUserProfile(userId)
+  
+  // Get follow stats for the profile user
+  const { stats: followStats, loading: statsLoading } = useFollowStats(userId)
+  
+  // Get follow status and management for current user towards profile user
+  const { isFollowing, loading: followLoading, toggleFollow } = useFollow(userId)
+  
+  // State for followers and following lists
+  const [followers, setFollowers] = useState<User[]>([])
+  const [following, setFollowing] = useState<User[]>([])
+  const [connectionsLoading, setConnectionsLoading] = useState(false)
 
+  // Fetch followers and following lists
   useEffect(() => {
-    const current = getCurrentUser()
-    if (!current) {
+    const fetchConnections = async () => {
+      if (!userId) return
+      
+      try {
+        setConnectionsLoading(true)
+        const [followersData, followingData] = await Promise.all([
+          UserService.getUserFollowers(userId),
+          UserService.getUserFollowing(userId)
+        ])
+        setFollowers(followersData)
+        setFollowing(followingData)
+      } catch (error) {
+        console.error('Error fetching connections:', error)
+      } finally {
+        setConnectionsLoading(false)
+      }
+    }
+
+    if (userId && profileUser) {
+      fetchConnections()
+    }
+  }, [userId, profileUser])
+
+  // Redirect if not authenticated
+  useEffect(() => {
+    if (!authLoading && !currentUser) {
       router.push("/login")
-      return
     }
+  }, [authLoading, currentUser, router])
 
-    const userId = params.id as string
-    const profile = getUserById(userId)
+  const handleFollowToggle = async () => {
+    if (!currentUser || !profileUser || followLoading) return
 
-    if (!profile) {
-      router.push("/profile")
-      return
-    }
-
-    setCurrentUser(current)
-    setProfileUser(profile)
-    setIsFollowing(current.following.includes(userId))
-    setIsLoading(false)
-  }, [params.id, router])
-
-  const handleFollowToggle = () => {
-    if (!currentUser || !profileUser) return
-
-    if (isFollowing) {
-      unfollowUser(currentUser.id, profileUser.id)
-      setIsFollowing(false)
+    try {
+      await toggleFollow()
       toast({
-        title: "Désabonnement",
-        description: `Vous ne suivez plus @${profileUser.username}`,
+        title: isFollowing ? "Désabonnement" : "Nouvel abonnement ! 🎉",
+        description: isFollowing 
+          ? `Vous ne suivez plus @${profileUser.username}`
+          : `Vous suivez maintenant @${profileUser.username}`,
       })
-    } else {
-      followUser(currentUser.id, profileUser.id)
-      setIsFollowing(true)
+    } catch (error) {
       toast({
-        title: "Nouvel abonnement ! 🎉",
-        description: `Vous suivez maintenant @${profileUser.username}`,
+        title: "Erreur",
+        description: "Une erreur est survenue lors de l'opération",
+        variant: "destructive"
       })
-    }
-
-    // Mettre à jour l'utilisateur actuel
-    const updatedCurrentUser = getCurrentUser()
-    if (updatedCurrentUser) {
-      setCurrentUser(updatedCurrentUser)
     }
   }
+
+  const isLoading = authLoading || profileLoading || statsLoading
 
   if (isLoading) {
     return (
@@ -81,7 +103,11 @@ export default function UserProfilePage() {
     )
   }
 
-  if (!profileUser || !currentUser) {
+  if (!currentUser) {
+    return null // Will redirect to login
+  }
+
+  if (profileError || !profileUser) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
@@ -92,14 +118,12 @@ export default function UserProfilePage() {
     )
   }
 
-  const likedMovies = mockMovies.filter((movie) => profileUser.likedMovies.includes(movie.id))
-  const lovedMovies = mockMovies.filter((movie) => profileUser.lovedMovies.includes(movie.id))
-  const allUsers = getAllUsers()
-  const followers = allUsers.filter((u) => profileUser.followers.includes(u.id))
-  const following = allUsers.filter((u) => profileUser.following.includes(u.id))
+  // Mock movie lists - In real app, this would come from backend
+  const likedMovies = mockMovies.filter((movie) => Math.random() > 0.7) // Mock data
+  const lovedMovies = mockMovies.filter((movie) => Math.random() > 0.8) // Mock data
 
-  const formatDate = (timestamp: number) => {
-    return new Date(timestamp).toLocaleDateString("fr-FR", {
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString("fr-FR", {
       year: "numeric",
       month: "long",
     })
@@ -151,7 +175,7 @@ export default function UserProfilePage() {
           <div className="flex flex-col md:flex-row items-center gap-6">
             <div className="relative">
               <img
-                src={profileUser.avatar || "/placeholder.svg?height=120&width=120"}
+                src={profileUser.avatar_url || "/placeholder.svg?height=120&width=120"}
                 alt={profileUser.username}
                 className="w-24 h-24 rounded-full object-cover border-4 border-purple-400/30"
               />
@@ -168,11 +192,11 @@ export default function UserProfilePage() {
 
               <div className="flex flex-wrap justify-center md:justify-start gap-6 text-sm">
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-purple-400">{followers.length}</div>
+                  <div className="text-2xl font-bold text-purple-400">{followStats?.followers_count || 0}</div>
                   <div className="text-gray-400">Abonnés</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-purple-400">{following.length}</div>
+                  <div className="text-2xl font-bold text-purple-400">{followStats?.following_count || 0}</div>
                   <div className="text-gray-400">Abonnements</div>
                 </div>
                 <div className="text-center">
@@ -183,7 +207,7 @@ export default function UserProfilePage() {
 
               <div className="flex items-center justify-center md:justify-start gap-2 mt-4 text-sm text-gray-400">
                 <Calendar className="w-4 h-4" />
-                Membre depuis {formatDate(profileUser.createdAt)}
+                Membre depuis {formatDate(profileUser.created_at)}
               </div>
             </div>
           </div>
@@ -211,7 +235,7 @@ export default function UserProfilePage() {
                 <Users className="w-4 h-4" />
                 <span className="hidden sm:inline">Amis</span>
                 <Badge variant="secondary" className="ml-1">
-                  {following.length}
+                  {followStats?.following_count || 0}
                 </Badge>
               </TabsTrigger>
             </TabsList>
@@ -289,17 +313,22 @@ export default function UserProfilePage() {
                 <div>
                   <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
                     <Users className="w-5 h-5" />
-                    Abonnements ({following.length})
+                    Abonnements ({followStats?.following_count || 0})
                   </h3>
 
-                  {following.length > 0 ? (
+                  {connectionsLoading ? (
+                    <div className="text-center py-8">
+                      <div className="animate-spin w-6 h-6 border-2 border-purple-400 border-t-transparent rounded-full mx-auto mb-4"></div>
+                      <p className="text-gray-400">Chargement...</p>
+                    </div>
+                  ) : following && following.length > 0 ? (
                     <div className="space-y-4">
-                      {following.map((friend) => (
+                      {following.map((friend: User) => (
                         <Card key={friend.id} className="glass border-white/10">
                           <CardContent className="p-4">
                             <div className="flex items-center gap-4">
                               <img
-                                src={friend.avatar || "/placeholder.svg?height=50&width=50"}
+                                src={friend.avatar_url || "/placeholder.svg?height=50&width=50"}
                                 alt={friend.username}
                                 className="w-12 h-12 rounded-full object-cover"
                               />
@@ -334,17 +363,22 @@ export default function UserProfilePage() {
                 <div>
                   <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
                     <Heart className="w-5 h-5" />
-                    Abonnés ({followers.length})
+                    Abonnés ({followStats?.followers_count || 0})
                   </h3>
 
-                  {followers.length > 0 ? (
+                  {connectionsLoading ? (
+                    <div className="text-center py-8">
+                      <div className="animate-spin w-6 h-6 border-2 border-purple-400 border-t-transparent rounded-full mx-auto mb-4"></div>
+                      <p className="text-gray-400">Chargement...</p>
+                    </div>
+                  ) : followers && followers.length > 0 ? (
                     <div className="space-y-4">
-                      {followers.map((follower) => (
+                      {followers.map((follower: User) => (
                         <Card key={follower.id} className="glass border-white/10">
                           <CardContent className="p-4">
                             <div className="flex items-center gap-4">
                               <img
-                                src={follower.avatar || "/placeholder.svg?height=50&width=50"}
+                                src={follower.avatar_url || "/placeholder.svg?height=50&width=50"}
                                 alt={follower.username}
                                 className="w-12 h-12 rounded-full object-cover"
                               />

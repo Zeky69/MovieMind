@@ -8,67 +8,72 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, Search, Users, UserPlus, UserCheck, Heart } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { getCurrentUser, getAllUsers, followUser, unfollowUser } from "@/lib/auth"
+import { useAuth } from "@/contexts/auth-context"
+import { useSuggestedUsers, useUserSearch } from "@/hooks/use-user"
+import { UserService } from "@/services/user.service"
 import type { User } from "@/types/user"
 import { useToast } from "@/hooks/use-toast"
 
 export default function DiscoverPage() {
-  const [currentUser, setCurrentUser] = useState<User | null>(null)
-  const [allUsers, setAllUsers] = useState<User[]>([])
-  const [filteredUsers, setFilteredUsers] = useState<User[]>([])
+  const { user: currentUser, isAuthenticated } = useAuth()
+  const { suggestions, loading: suggestionsLoading } = useSuggestedUsers(20)
+  const { users: searchResults, loading: searchLoading, searchUsers, clearSearch } = useUserSearch()
   const [searchQuery, setSearchQuery] = useState("")
+  const [followingUsers, setFollowingUsers] = useState<Set<number>>(new Set())
   const router = useRouter()
   const { toast } = useToast()
 
+  // Rediriger si non authentifié
   useEffect(() => {
-    const current = getCurrentUser()
-    if (!current) {
+    if (!isAuthenticated) {
       router.push("/login")
-      return
     }
+  }, [isAuthenticated, router])
 
-    setCurrentUser(current)
-    const users = getAllUsers().filter((u) => u.id !== current.id)
-    setAllUsers(users)
-    setFilteredUsers(users)
-  }, [router])
-
+  // Effectuer la recherche quand la query change
   useEffect(() => {
     if (searchQuery.trim()) {
-      const filtered = allUsers.filter(
-        (user) =>
-          user.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          user.bio?.toLowerCase().includes(searchQuery.toLowerCase()),
-      )
-      setFilteredUsers(filtered)
+      searchUsers(searchQuery)
     } else {
-      setFilteredUsers(allUsers)
+      clearSearch()
     }
-  }, [searchQuery, allUsers])
+  }, [searchQuery, searchUsers, clearSearch])
 
-  const handleFollowToggle = (targetUser: User) => {
+  const handleFollowToggle = async (targetUser: User) => {
     if (!currentUser) return
 
-    const isFollowing = currentUser.following.includes(targetUser.id)
+    try {
+      setFollowingUsers(prev => new Set([...prev, targetUser.id]))
 
-    if (isFollowing) {
-      unfollowUser(currentUser.id, targetUser.id)
+      // Vérifier d'abord si on suit l'utilisateur
+      const followStatus = await UserService.isFollowingUser(targetUser.id)
+      
+      if (followStatus.is_following) {
+        await UserService.unfollowUser(targetUser.id)
+        toast({
+          title: "Désabonnement",
+          description: `Vous ne suivez plus @${targetUser.username}`,
+        })
+      } else {
+        await UserService.followUser(targetUser.id)
+        toast({
+          title: "Nouvel abonnement ! 🎉",
+          description: `Vous suivez maintenant @${targetUser.username}`,
+        })
+      }
+    } catch (error) {
+      console.error('Error toggling follow:', error)
       toast({
-        title: "Désabonnement",
-        description: `Vous ne suivez plus @${targetUser.username}`,
+        title: "Erreur",
+        description: "Impossible de mettre à jour le suivi",
+        variant: "destructive",
       })
-    } else {
-      followUser(currentUser.id, targetUser.id)
-      toast({
-        title: "Nouvel abonnement ! 🎉",
-        description: `Vous suivez maintenant @${targetUser.username}`,
+    } finally {
+      setFollowingUsers(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(targetUser.id)
+        return newSet
       })
-    }
-
-    // Mettre à jour l'utilisateur actuel
-    const updatedCurrentUser = getCurrentUser()
-    if (updatedCurrentUser) {
-      setCurrentUser(updatedCurrentUser)
     }
   }
 
@@ -83,8 +88,8 @@ export default function DiscoverPage() {
     )
   }
 
-  const formatDate = (timestamp: number) => {
-    return new Date(timestamp).toLocaleDateString("fr-FR", {
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString("fr-FR", {
       year: "numeric",
       month: "long",
     })
@@ -131,11 +136,14 @@ export default function DiscoverPage() {
 
         {/* Users Grid */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
-          {filteredUsers.length > 0 ? (
+          {(suggestionsLoading || searchLoading) ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-400"></div>
+            </div>
+          ) : (searchQuery.trim() ? searchResults : suggestions?.suggestions || []).length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {filteredUsers.map((user, index) => {
-                const isFollowing = currentUser.following.includes(user.id)
-                const mutualFollowers = user.followers.filter((id) => currentUser.following.includes(id))
+              {(searchQuery.trim() ? searchResults : suggestions?.suggestions || []).map((user, index) => {
+                const isFollowingUser = followingUsers.has(user.id)
 
                 return (
                   <motion.div
@@ -149,34 +157,28 @@ export default function DiscoverPage() {
                         <div className="flex items-start gap-4">
                           <div className="relative">
                             <img
-                              src={user.avatar || "/placeholder.svg?height=60&width=60"}
+                              src={user.avatar_url || "/placeholder.svg?height=60&width=60"}
                               alt={user.username}
                               className="w-15 h-15 rounded-full object-cover border-2 border-purple-400/30"
                             />
-                            {isFollowing && (
-                              <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-green-500 rounded-full border-2 border-slate-900 flex items-center justify-center">
-                                <Heart className="w-3 h-3 text-white" />
-                              </div>
-                            )}
+                            {/* Badge de suivi (on peut le supprimer ou utiliser les stats) */}
                           </div>
 
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-2">
-                              <h3 className="font-bold text-white truncate">@{user.username}</h3>
-                              {mutualFollowers.length > 0 && (
-                                <Badge variant="secondary" className="text-xs">
-                                  {mutualFollowers.length} ami{mutualFollowers.length > 1 ? "s" : ""} commun
-                                  {mutualFollowers.length > 1 ? "s" : ""}
-                                </Badge>
-                              )}
+                              <h3 className="font-bold text-white truncate">
+                                {user.first_name && user.last_name 
+                                  ? `${user.first_name} ${user.last_name}`
+                                  : `@${user.username}`
+                                }
+                              </h3>
+                              <span className="text-sm text-gray-400">@{user.username}</span>
                             </div>
 
                             {user.bio && <p className="text-sm text-gray-400 line-clamp-2 mb-3">{user.bio}</p>}
 
                             <div className="flex items-center gap-4 text-xs text-gray-500 mb-4">
-                              <span>{user.followers.length} abonnés</span>
-                              <span>{user.likedMovies.length} films aimés</span>
-                              <span>Depuis {formatDate(user.createdAt)}</span>
+                              <span>Membre depuis {formatDate(user.created_at)}</span>
                             </div>
 
                             <div className="flex gap-2">
@@ -191,24 +193,16 @@ export default function DiscoverPage() {
 
                               <Button
                                 onClick={() => handleFollowToggle(user)}
+                                disabled={isFollowingUser}
                                 size="sm"
-                                className={`flex items-center gap-2 ${
-                                  isFollowing
-                                    ? "bg-green-500/20 hover:bg-red-500/20 text-green-300 hover:text-red-300 border border-green-500/30 hover:border-red-500/30"
-                                    : "gradient-primary text-white"
-                                }`}
+                                className="gradient-primary text-white"
                               >
-                                {isFollowing ? (
-                                  <>
-                                    <UserCheck className="w-4 h-4" />
-                                    Suivi
-                                  </>
+                                {isFollowingUser ? (
+                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                                 ) : (
-                                  <>
-                                    <UserPlus className="w-4 h-4" />
-                                    Suivre
-                                  </>
+                                  <UserPlus className="w-4 h-4 mr-2" />
                                 )}
+                                {isFollowingUser ? 'En cours...' : 'Suivre'}
                               </Button>
                             </div>
                           </div>

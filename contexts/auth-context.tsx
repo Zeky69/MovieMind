@@ -32,6 +32,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
       try {
         const state = AuthService.getAuthState()
         setAuthState(state)
+        
+        // Initialiser le refresh automatique si l'utilisateur est authentifié
+        if (state.isAuthenticated) {
+          AuthService.initializeAutoRefresh()
+        }
       } catch (error) {
         console.error('Error initializing auth state:', error)
         setAuthState({
@@ -45,6 +50,37 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
 
     initAuth()
+  }, [])
+
+  // Écouter les changements d'état d'authentification pour gérer le refresh
+  useEffect(() => {
+    // Créer un gestionnaire d'événements pour le refresh automatique
+    const handleTokenRefresh = (event: CustomEvent) => {
+      const { user, token } = event.detail
+      setAuthState(prev => ({
+        ...prev,
+        user,
+        token
+      }))
+    }
+
+    // Créer un gestionnaire pour l'expiration du token
+    const handleTokenExpiration = () => {
+      setAuthState({
+        isAuthenticated: false,
+        user: null,
+        token: null
+      })
+    }
+
+    // Ajouter les écouteurs d'événements
+    window.addEventListener('tokenRefreshed', handleTokenRefresh as EventListener)
+    window.addEventListener('tokenExpired', handleTokenExpiration)
+
+    return () => {
+      window.removeEventListener('tokenRefreshed', handleTokenRefresh as EventListener)
+      window.removeEventListener('tokenExpired', handleTokenExpiration)
+    }
   }, [])
 
   // Fonction de connexion

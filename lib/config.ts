@@ -12,5 +12,6 @@ export const API_CONFIG = {
 export const AUTH_CONFIG = {
   TOKEN_KEY: 'moviemind_token',
   USER_KEY: 'moviemind_user',
+  TOKEN_METADATA_KEY: 'moviemind_token_metadata',
   REFRESH_THRESHOLD: 5 * 60 * 1000, // 5 minutes avant expiration
 } as const

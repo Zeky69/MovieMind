@@ -20,6 +20,7 @@ export class ApiError extends Error {
 interface ApiRequestOptions extends RequestInit {
   requiresAuth?: boolean
   timeout?: number
+  skipTokenRefresh?: boolean // Pour éviter les boucles infinies lors du refresh
 }
 
 /**
@@ -28,6 +29,8 @@ interface ApiRequestOptions extends RequestInit {
 export class Api {
   private baseURL: string
   private timeout: number
+  private isRefreshing: boolean = false
+  private refreshPromise: Promise<any> | null = null
 
   constructor(baseURL: string = API_CONFIG.BASE_URL, timeout: number = API_CONFIG.TIMEOUT) {
     this.baseURL = baseURL
@@ -40,6 +43,44 @@ export class Api {
   private getAuthToken(): string | null {
     if (typeof window === 'undefined') return null
     return localStorage.getItem('moviemind_token')
+  }
+
+  /**
+   * Vérifier et rafraîchir le token si nécessaire
+   */
+  private async ensureValidToken(options: ApiRequestOptions = {}): Promise<void> {
+    // Ignorer la vérification si on ne nécessite pas d'auth ou si on est déjà en train de rafraîchir
+    if (!options.requiresAuth || options.skipTokenRefresh) {
+      return
+    }
+
+    // Importer dynamiquement le service d'auth pour éviter les dépendances circulaires
+    const { AuthService } = await import('@/services/auth.service')
+    
+    // Vérifier si le token doit être rafraîchi
+    if (AuthService.shouldRefreshToken()) {
+      if (this.isRefreshing) {
+        // Si on est déjà en train de rafraîchir, attendre la fin
+        await this.refreshPromise
+      } else {
+        // Démarrer le processus de refresh
+        this.isRefreshing = true
+        this.refreshPromise = AuthService.refreshToken()
+          .then(() => {
+            console.log('Token refreshed successfully')
+          })
+          .catch((error) => {
+            console.error('Failed to refresh token:', error)
+            throw error
+          })
+          .finally(() => {
+            this.isRefreshing = false
+            this.refreshPromise = null
+          })
+        
+        await this.refreshPromise
+      }
+    }
   }
 
   /**
@@ -91,6 +132,9 @@ export class Api {
     endpoint: string,
     options: ApiRequestOptions = {}
   ): Promise<T> {
+    // Vérifier et rafraîchir le token si nécessaire
+    await this.ensureValidToken(options)
+
     const url = `${this.baseURL}${endpoint}`
     const headers = this.createHeaders(options)
 
@@ -110,6 +154,28 @@ export class Api {
           errorCode = errorData.code || errorCode
         } catch {
           // Ignore JSON parsing errors
+        }
+
+        // Si c'est une erreur 401 et qu'on n'est pas déjà en train de rafraîchir le token
+        if (response.status === 401 && options.requiresAuth && !options.skipTokenRefresh) {
+          console.log('Received 401, attempting token refresh')
+          
+          try {
+            // Importer dynamiquement le service d'auth
+            const { AuthService } = await import('@/services/auth.service')
+            
+            // Essayer de rafraîchir le token
+            await AuthService.refreshToken()
+            
+            // Réessayer la requête avec le nouveau token
+            const retryOptions = { ...options, skipTokenRefresh: true }
+            return this.request<T>(endpoint, retryOptions)
+          } catch (refreshError) {
+            // Si le refresh échoue, gérer l'expiration du token
+            const { AuthService } = await import('@/services/auth.service')
+            AuthService.handleTokenExpiration()
+            throw new ApiError('Authentication expired', 401, 'TOKEN_EXPIRED')
+          }
         }
 
         throw new ApiError(errorMessage, response.status, errorCode)

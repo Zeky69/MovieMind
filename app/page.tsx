@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Dice6, Users, Sparkles, Zap } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useToast } from "@/hooks/use-toast"
+import { api } from "@/lib/api"
 
 export default function HomePage() {
   const [prompt, setPrompt] = useState("")
@@ -29,19 +30,18 @@ export default function HomePage() {
     setIsLoading(true)
 
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1500))
+      // Utiliser l'API centralisée pour envoyer la requête
+      const data = await api.post<{ id: string }>('/chat', {
+        prompt: searchPrompt,
+        isGroupMode,
+      })
 
-      localStorage.setItem(
-        "currentSearch",
-        JSON.stringify({
-          prompt: searchPrompt,
-          isGroupMode,
-          timestamp: Date.now(),
-        }),
-      )
+      const chatId = data.id
 
-      router.push("/results")
+      // Rediriger vers la page de chat avec l'ID reçu
+      router.push(`/chat/${chatId}`)
     } catch (error) {
+      console.error('Erreur lors de la recherche:', error)
       toast({
         title: "Erreur",
         description: "Une erreur est survenue lors de la recherche",

@@ -5,12 +5,23 @@ import { motion, useMotionValue, useTransform, type PanInfo } from "framer-motio
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Star, Clock, Calendar, Heart, X, Zap } from "lucide-react"
-import type { Movie } from "@/types/movie"
+import type { Movie, LegacyMovie } from "@/types/movie"
+import { 
+  getMoviePosterImageUrl, 
+  getMovieTitle, 
+  getMovieSummary, 
+  getMovieYear, 
+  getMovieRating, 
+  getMovieDuration, 
+  getMovieGenres,
+  getMovieDirector,
+  getMovieCast
+} from "@/types/movie"
 import type { SwipeAction } from "@/types/chat"
 
 interface SwipeCardProps {
-  movie: Movie
-  onSwipe: (action: SwipeAction, movie: Movie) => void
+  movie: Movie | LegacyMovie
+  onSwipe: (action: SwipeAction, movie: Movie | LegacyMovie) => void
   isActive: boolean
 }
 
@@ -73,9 +84,9 @@ export function SwipeCard({ movie, onSwipe, isActive }: SwipeCardProps) {
         {/* Movie Poster */}
         <div className="relative h-3/5 overflow-hidden">
           <img
-            src={movie.poster || "/placeholder.svg?height=600&width=400"}
-            alt={movie.title}
-            className="w-full h-full object-cover"
+            src={getMoviePosterImageUrl(movie)}
+            alt={getMovieTitle(movie)}
+            className="w-full h-full object-contain"
           />
 
           {/* Gradient Overlay */}
@@ -110,29 +121,29 @@ export function SwipeCard({ movie, onSwipe, isActive }: SwipeCardProps) {
           </motion.div>
 
           {/* Rating Badge */}
-          {movie.rating && (
+          {getMovieRating(movie) && (
             <div className="absolute top-4 left-4">
               <Badge className="bg-black/50 text-white border-white/20 px-3 py-1 backdrop-blur-sm">
                 <Star className="w-3 h-3 fill-yellow-400 text-yellow-400 mr-1" />
-                {movie.rating}
+                {getMovieRating(movie)}
               </Badge>
             </div>
           )}
 
           {/* Quick Info Overlay */}
           <div className="absolute bottom-4 left-4 right-4">
-            <h3 className="font-bold text-2xl text-white mb-2 line-clamp-2">{movie.title}</h3>
+            <h3 className="font-bold text-2xl text-white mb-2 line-clamp-2">{getMovieTitle(movie)}</h3>
             <div className="flex items-center gap-3 text-sm text-gray-200">
-              {movie.year && (
+              {getMovieYear(movie) && (
                 <span className="flex items-center gap-1">
                   <Calendar className="w-3 h-3" />
-                  {movie.year}
+                  {getMovieYear(movie)}
                 </span>
               )}
-              {movie.duration && (
+              {getMovieDuration(movie) && (
                 <span className="flex items-center gap-1">
                   <Clock className="w-3 h-3" />
-                  {movie.duration}
+                  {getMovieDuration(movie)}
                 </span>
               )}
             </div>
@@ -142,22 +153,22 @@ export function SwipeCard({ movie, onSwipe, isActive }: SwipeCardProps) {
         {/* Movie Details */}
         <div className="p-6 h-2/5 flex flex-col justify-between">
           <div className="space-y-3">
-            <p className="text-gray-300 text-sm line-clamp-3 leading-relaxed">{movie.summary}</p>
+            <p className="text-gray-300 text-sm line-clamp-3 leading-relaxed">{getMovieSummary(movie)}</p>
 
-            {movie.director && (
+            {getMovieDirector(movie) && (
               <div className="text-xs text-gray-400">
-                <span className="font-medium text-purple-400">Réalisateur:</span> {movie.director}
+                <span className="font-medium text-purple-400">Réalisateur:</span> {getMovieDirector(movie)}
               </div>
             )}
 
-            {movie.cast && movie.cast.length > 0 && (
+            {getMovieCast(movie) && getMovieCast(movie).length > 0 && (
               <div className="text-xs text-gray-400">
-                <span className="font-medium text-purple-400">Avec:</span> {movie.cast.slice(0, 2).join(", ")}
+                <span className="font-medium text-purple-400">Avec:</span> {getMovieCast(movie).slice(0, 2).join(", ")}
               </div>
             )}
 
             <div className="flex flex-wrap gap-2">
-              {movie.genres.slice(0, 3).map((genre) => (
+              {getMovieGenres(movie).slice(0, 3).map((genre) => (
                 <Badge key={genre} variant="outline" className="text-xs border-purple-400/30 text-purple-300">
                   {genre}
                 </Badge>
@@ -167,28 +178,31 @@ export function SwipeCard({ movie, onSwipe, isActive }: SwipeCardProps) {
 
           {/* Action Buttons */}
           {isActive && (
-            <div className="flex gap-3 mt-4">
+            <div className="flex gap-2 mt-3">
               <Button
+                size="sm"
                 onClick={() => handleButtonAction("dislike")}
-                className="flex-1 bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/30 rounded-xl transition-all duration-300"
+                className="flex-1 bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/30 rounded-lg transition-all duration-300 py-2 text-xs"
               >
-                <X className="w-4 h-4 mr-2" />
+                <X className="w-3 h-3 mr-1" />
                 Non
               </Button>
 
               <Button
+                size="sm"
                 onClick={() => handleButtonAction("love")}
-                className="flex-1 bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-400 hover:to-orange-400 text-white rounded-xl transition-all duration-300 shadow-lg"
+                className="flex-1 bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-400 hover:to-orange-400 text-white rounded-lg transition-all duration-300 shadow-lg py-2 text-xs"
               >
-                <Zap className="w-4 h-4 mr-2" />
+                <Zap className="w-3 h-3 mr-1" />
                 Coup de ❤️
               </Button>
 
               <Button
+                size="sm"
                 onClick={() => handleButtonAction("like")}
-                className="flex-1 bg-green-500/20 hover:bg-green-500/30 text-green-300 border border-green-500/30 rounded-xl transition-all duration-300"
+                className="flex-1 bg-green-500/20 hover:bg-green-500/30 text-green-300 border border-green-500/30 rounded-lg transition-all duration-300 py-2 text-xs"
               >
-                <Heart className="w-4 h-4 mr-2" />
+                <Heart className="w-3 h-3 mr-1" />
                 J'aime
               </Button>
             </div>

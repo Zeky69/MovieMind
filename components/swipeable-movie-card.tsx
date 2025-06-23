@@ -5,12 +5,23 @@ import { motion, useMotionValue, useTransform, type PanInfo } from "framer-motio
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Star, Clock, Calendar, Heart, X, Zap } from "lucide-react"
-import type { Movie } from "@/types/movie"
+import type { Movie, LegacyMovie } from "@/types/movie"
+import { 
+  getMoviePosterImageUrl, 
+  getMovieTitle, 
+  getMovieSummary, 
+  getMovieYear, 
+  getMovieRating, 
+  getMovieDuration, 
+  getMovieGenres,
+  getMovieDirector,
+  getMovieCast
+} from "@/types/movie"
 import type { SwipeAction } from "@/types/swipe"
 
 interface SwipeableMovieCardProps {
-  movie: Movie
-  onSwipe: (action: SwipeAction, movie: Movie) => void
+  movie: Movie | LegacyMovie
+  onSwipe: (action: SwipeAction, movie: Movie | LegacyMovie) => void
   isActive: boolean
   enhanced?: boolean
 }
@@ -74,8 +85,8 @@ export function SwipeableMovieCard({ movie, onSwipe, isActive, enhanced = false 
         {/* Poster */}
         <div className="relative h-3/5 overflow-hidden">
           <img
-            src={movie.poster || "/placeholder.svg?height=600&width=400"}
-            alt={movie.title}
+            src={getMoviePosterImageUrl(movie)}
+            alt={getMovieTitle(movie)}
             className="w-full h-full object-cover"
           />
 
@@ -111,11 +122,11 @@ export function SwipeableMovieCard({ movie, onSwipe, isActive, enhanced = false 
           </motion.div>
 
           {/* Rating Badge */}
-          {movie.rating && (
+          {getMovieRating(movie) && (
             <div className="absolute top-4 left-4">
               <Badge className="glass text-white border-white/20 px-3 py-1">
                 <Star className="w-3 h-3 fill-yellow-400 text-yellow-400 mr-1" />
-                {movie.rating}
+                {getMovieRating(movie)}
               </Badge>
             </div>
           )}
@@ -124,41 +135,41 @@ export function SwipeableMovieCard({ movie, onSwipe, isActive, enhanced = false 
         {/* Movie Info */}
         <div className="p-6 h-2/5 flex flex-col justify-between">
           <div className="flex-1">
-            <h3 className="font-bold text-xl line-clamp-2 mb-3 text-white">{movie.title}</h3>
+            <h3 className="font-bold text-xl line-clamp-2 mb-3 text-white">{getMovieTitle(movie)}</h3>
             <div className="flex items-center gap-4 text-sm text-gray-400 mb-3">
-              {movie.year && (
+              {getMovieYear(movie) && (
                 <span className="flex items-center gap-1">
                   <Calendar className="w-3 h-3" />
-                  {movie.year}
+                  {getMovieYear(movie)}
                 </span>
               )}
-              {movie.duration && (
+              {getMovieDuration(movie) && (
                 <span className="flex items-center gap-1">
                   <Clock className="w-3 h-3" />
-                  {movie.duration}
+                  {getMovieDuration(movie)}
                 </span>
               )}
             </div>
-            <p className="text-gray-300 text-sm line-clamp-2 mb-3">{movie.summary}</p>
+            <p className="text-gray-300 text-sm line-clamp-2 mb-3">{getMovieSummary(movie)}</p>
 
             {/* Enhanced info for chat */}
             {enhanced && (
               <div className="space-y-1 mb-3">
-                {movie.director && (
+                {getMovieDirector(movie) && (
                   <div className="text-xs text-gray-400">
-                    <span className="font-medium">Réalisateur:</span> {movie.director}
+                    <span className="font-medium">Réalisateur:</span> {getMovieDirector(movie)}
                   </div>
                 )}
-                {movie.cast && movie.cast.length > 0 && (
+                {getMovieCast(movie) && getMovieCast(movie).length > 0 && (
                   <div className="text-xs text-gray-400">
-                    <span className="font-medium">Avec:</span> {movie.cast.slice(0, 2).join(", ")}
+                    <span className="font-medium">Avec:</span> {getMovieCast(movie).slice(0, 2).join(", ")}
                   </div>
                 )}
               </div>
             )}
 
             <div className="flex flex-wrap gap-2">
-              {movie.genres.slice(0, 3).map((genre) => (
+              {getMovieGenres(movie).slice(0, 3).map((genre) => (
                 <Badge key={genre} variant="outline" className="text-xs border-white/20 text-gray-300">
                   {genre}
                 </Badge>

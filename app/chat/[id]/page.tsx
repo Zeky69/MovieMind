@@ -4,21 +4,20 @@ import { useEffect, useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { ArrowLeft, MessageCircle } from "lucide-react"
-import { useRouter } from "next/navigation"
-import { getMovieRecommendations } from "@/lib/movie-api"
+import { useRouter, useParams } from "next/navigation"
 import { Loader } from "@/components/loader"
 import { MovieDiscovery } from "@/components/movie-discovery"
 import { ConversationPanel } from "@/components/conversation-panel"
 import type { Movie } from "@/types/movie"
 import type { SwipeAction } from "@/types/chat"
 import { useAuth } from "@/contexts/auth-context"
-import type { User } from "@/types/user"
+import { api } from "@/lib/api"
 
-export default function ResultsPage() {
+export default function ChatPage() {
   const [movies, setMovies] = useState<Movie[]>([])
   const [currentMovieIndex, setCurrentMovieIndex] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
-  const [searchData, setSearchData] = useState<any>(null)
+  const [chatData, setChatData] = useState<any>(null)
   const [showConversation, setShowConversation] = useState(false)
   const [conversationHistory, setConversationHistory] = useState<string[]>([])
   const [userPreferences, setUserPreferences] = useState({
@@ -28,6 +27,8 @@ export default function ResultsPage() {
   })
   const { user: currentUser, isAuthenticated } = useAuth()
   const router = useRouter()
+  const params = useParams()
+  const chatId = params.id as string
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -37,45 +38,43 @@ export default function ResultsPage() {
   }, [isAuthenticated, router])
 
   useEffect(() => {
-    const initializeDiscovery = async () => {
+    const initializeChat = async () => {
+      if (!chatId) {
+        router.push("/")
+        return
+      }
+
       try {
-        const stored = localStorage.getItem("currentSearch")
-        if (!stored) {
-          router.push("/")
-          return
-        }
-
-        const data = JSON.parse(stored)
-        setSearchData(data)
-
-        const recommendations = await getMovieRecommendations(data.prompt, data.isGroupMode)
-        setMovies(recommendations)
-
-        // Ajouter le prompt initial à l'historique
-        setConversationHistory([`Recherche initiale: "${data.prompt}"`])
+        setIsLoading(true)
+        
+        // Récupérer les données du chat et les films recommandés avec l'ID
+        const data = await api.get<{
+          id: string
+          prompt: string
+          isGroupMode: boolean
+          movies: Movie[]
+          conversation_history?: string[]
+        }>(`/chat/${chatId}`)
+        
+        setChatData(data)
+        setMovies(data.movies || [])
+        
+        // Initialiser l'historique de conversation
+        const initialHistory = data.conversation_history || [`Recherche initiale: "${data.prompt}"`]
+        setConversationHistory(initialHistory)
+        
       } catch (error) {
-        console.error("Erreur lors de l'initialisation:", error)
+        console.error("Erreur lors de l'initialisation du chat:", error)
+        router.push("/")
       } finally {
         setIsLoading(false)
       }
     }
 
-    initializeDiscovery()
-  }, [router])
+    initializeChat()
+  }, [chatId, router])
 
-  const handleSwipe = (action: SwipeAction, movie: Movie) => {
-    // Save to user preferences if logged in
-    // TODO: Implémenter la sauvegarde des préférences utilisateur via le backend
-    // if (currentUser) {
-    //   if (action === "like") {
-    //     addMovieToUserList(currentUser.id, movie.id, "liked")
-    //   } else if (action === "dislike") {
-    //     addMovieToUserList(currentUser.id, movie.id, "disliked")
-    //   } else if (action === "love") {
-    //     addMovieToUserList(currentUser.id, movie.id, "loved")
-    //   }
-    // }
-
+  const handleSwipe = async (action: SwipeAction, movie: Movie) => {
     const newPreferences = { ...userPreferences }
 
     switch (action) {
@@ -100,7 +99,19 @@ export default function ResultsPage() {
       love: `💖 Coup de cœur pour "${movie.title}"`,
     }
 
-    setConversationHistory((prev) => [...prev, actionText[action]])
+    const newHistory = [...conversationHistory, actionText[action]]
+    setConversationHistory(newHistory)
+
+    // Envoyer l'action au serveur pour mettre à jour le chat
+    try {
+      await api.post(`/chat/${chatId}/action`, {
+        action,
+        movie_id: movie.id,
+        movie_title: movie.title
+      })
+    } catch (error) {
+      console.error("Erreur lors de l'envoi de l'action:", error)
+    }
 
     // Passer au film suivant
     if (currentMovieIndex < movies.length - 1) {
@@ -111,21 +122,37 @@ export default function ResultsPage() {
     }
   }
 
-  const handleMovieSelected = (movie: Movie) => {
-    // Rediriger vers une page de détails ou afficher les liens de streaming
-    setConversationHistory((prev) => [...prev, `🎯 Film sélectionné: "${movie.title}"`])
+  const handleMovieSelected = async (movie: Movie) => {
+    const selectedMessage = `🎯 Film sélectionné: "${movie.title}"`
+    setConversationHistory((prev) => [...prev, selectedMessage])
+    
+    // Envoyer la sélection au serveur
+    try {
+      await api.post(`/chat/${chatId}/select`, {
+        movie_id: movie.id,
+        movie_title: movie.title
+      })
+    } catch (error) {
+      console.error("Erreur lors de la sélection du film:", error)
+    }
+    
     // Ici on pourrait ouvrir une modal avec les liens de streaming
   }
 
   const handleRefineSearch = async (refinement: string) => {
-    setConversationHistory((prev) => [...prev, `🔍 Affinement: "${refinement}"`])
+    const refinementMessage = `🔍 Affinement: "${refinement}"`
+    setConversationHistory((prev) => [...prev, refinementMessage])
     setShowConversation(false)
     setIsLoading(true)
 
     try {
-      const enrichedPrompt = createEnrichedPrompt(refinement)
-      const newMovies = await getMovieRecommendations(enrichedPrompt, searchData.isGroupMode)
-      setMovies(newMovies)
+      // Envoyer l'affinement au serveur pour obtenir de nouveaux films
+      const response = await api.post<{ movies: Movie[] }>(`/chat/${chatId}/refine`, {
+        refinement,
+        user_preferences: userPreferences
+      })
+      
+      setMovies(response.movies)
       setCurrentMovieIndex(0)
     } catch (error) {
       console.error("Erreur lors de l'affinement:", error)
@@ -134,26 +161,23 @@ export default function ResultsPage() {
     }
   }
 
-  const createEnrichedPrompt = (userInput: string) => {
-    let prompt = `${searchData.prompt} ${userInput}`
-
-    if (userPreferences.liked.length > 0) {
-      const likedTitles = userPreferences.liked.map((m) => m.title).join(", ")
-      prompt += ` (films aimés: ${likedTitles})`
-    }
-
-    if (userPreferences.disliked.length > 0) {
-      const dislikedTitles = userPreferences.disliked.map((m) => m.title).join(", ")
-      prompt += ` (films rejetés: ${dislikedTitles})`
-    }
-
-    return prompt
-  }
-
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader />
+      </div>
+    )
+  }
+
+  if (!chatData) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-xl font-bold text-white mb-2">Chat introuvable</h2>
+          <Button onClick={() => router.push("/")} variant="outline">
+            Retour à l'accueil
+          </Button>
+        </div>
       </div>
     )
   }
@@ -210,7 +234,7 @@ export default function ResultsPage() {
               currentIndex={currentMovieIndex}
               onSwipe={handleSwipe}
               userPreferences={userPreferences}
-              searchPrompt={searchData?.prompt}
+              searchPrompt={chatData?.prompt}
             />
           )}
         </AnimatePresence>

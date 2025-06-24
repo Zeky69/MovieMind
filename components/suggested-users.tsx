@@ -11,10 +11,10 @@ import Link from 'next/link'
 
 export function SuggestedUsers() {
   const { suggestions, loading, error, refetch } = useSuggestedUsers(5)
-  const [followingUsers, setFollowingUsers] = useState<Set<number>>(new Set())
+  const [followingUsers, setFollowingUsers] = useState<Set<string>>(new Set())
   const { toast } = useToast()
-
-  const handleFollow = async (userId: number) => {
+  const handleFollow = async (userId: string) => {
+    console.log('Following user with ID:', userId)
     try {
       setFollowingUsers(prev => new Set([...prev, userId]))
       await UserService.followUser(userId)
@@ -121,11 +121,11 @@ export function SuggestedUsers() {
         <div className="space-y-3">
           {suggestions.suggestions.map((user) => (
             <div 
-              key={user.id} 
+              key={user._id} 
               className="flex items-center justify-between p-3 rounded-lg bg-white/5 hover:bg-white/10 transition-colors"
             >
               <Link 
-                href={`/profile/${user.id}`}
+                href={`/profile/${user._id}`}
                 className="flex items-center gap-3 flex-1 hover:opacity-80 transition-opacity"
               >
                 <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-400 to-blue-500 flex items-center justify-center flex-shrink-0">
@@ -151,12 +151,12 @@ export function SuggestedUsers() {
               </Link>
               
               <Button
-                onClick={() => handleFollow(user.id)}
-                disabled={followingUsers.has(user.id)}
+                onClick={() => handleFollow(user._id)}
+                disabled={followingUsers.has(user._id)}
                 size="sm"
                 className="gradient-primary text-white ml-2"
               >
-                {followingUsers.has(user.id) ? (
+                {followingUsers.has(user._id) ? (
                   <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white mr-1"></div>
                 ) : (
                   <UserPlus className="w-3 h-3 mr-1" />

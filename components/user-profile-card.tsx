@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { User, Users, UserPlus, UserMinus } from 'lucide-react'
 
 interface UserProfileCardProps {
-  userId: number
+  userId: string
 }
 
 export function UserProfileCard({ userId }: UserProfileCardProps) {
@@ -53,7 +53,7 @@ export function UserProfileCard({ userId }: UserProfileCardProps) {
     )
   }
 
-  const isOwnProfile = currentUser?.id === userId
+  const isOwnProfile = currentUser?._id === user?._id
 
   return (
     <Card className="glass border-white/10">

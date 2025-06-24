@@ -22,7 +22,7 @@ export default function UserProfilePage() {
   const params = useParams()
   const { toast } = useToast()
   
-  const userId = parseInt(params.id as string, 10)
+  const userId = params.id as string
   
   // Get profile user data
   const { user: profileUser, loading: profileLoading, error: profileError } = useUserProfile(userId)
@@ -129,7 +129,7 @@ export default function UserProfilePage() {
     })
   }
 
-  const isOwnProfile = currentUser.id === profileUser.id
+  const isOwnProfile = currentUser._id === profileUser._id
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-6xl">
@@ -324,7 +324,7 @@ export default function UserProfilePage() {
                   ) : following && following.length > 0 ? (
                     <div className="space-y-4">
                       {following.map((friend: User) => (
-                        <Card key={friend.id} className="glass border-white/10">
+                        <Card key={friend._id} className="glass border-white/10">
                           <CardContent className="p-4">
                             <div className="flex items-center gap-4">
                               <img
@@ -337,7 +337,7 @@ export default function UserProfilePage() {
                                 {friend.bio && <p className="text-sm text-gray-400 line-clamp-1">{friend.bio}</p>}
                               </div>
                               <Button
-                                onClick={() => router.push(`/profile/${friend.id}`)}
+                                onClick={() => router.push(`/profile/${friend._id}`)}
                                 variant="outline"
                                 size="sm"
                                 className="border-purple-400/30 text-purple-300"
@@ -374,7 +374,7 @@ export default function UserProfilePage() {
                   ) : followers && followers.length > 0 ? (
                     <div className="space-y-4">
                       {followers.map((follower: User) => (
-                        <Card key={follower.id} className="glass border-white/10">
+                        <Card key={follower._id} className="glass border-white/10">
                           <CardContent className="p-4">
                             <div className="flex items-center gap-4">
                               <img
@@ -387,7 +387,7 @@ export default function UserProfilePage() {
                                 {follower.bio && <p className="text-sm text-gray-400 line-clamp-1">{follower.bio}</p>}
                               </div>
                               <Button
-                                onClick={() => router.push(`/profile/${follower.id}`)}
+                                onClick={() => router.push(`/profile/${follower._id}`)}
                                 variant="outline"
                                 size="sm"
                                 className="border-purple-400/30 text-purple-300"

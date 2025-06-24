@@ -19,7 +19,7 @@ export default function DiscoverPage() {
   const { suggestions, loading: suggestionsLoading } = useSuggestedUsers(20)
   const { users: searchResults, loading: searchLoading, searchUsers, clearSearch } = useUserSearch()
   const [searchQuery, setSearchQuery] = useState("")
-  const [followingUsers, setFollowingUsers] = useState<Set<number>>(new Set())
+  const [followingUsers, setFollowingUsers] = useState<Set<string>>(new Set())
   const router = useRouter()
   const { toast } = useToast()
 
@@ -43,19 +43,19 @@ export default function DiscoverPage() {
     if (!currentUser) return
 
     try {
-      setFollowingUsers(prev => new Set([...prev, targetUser.id]))
+      setFollowingUsers(prev => new Set([...prev, targetUser._id]))
 
       // Vérifier d'abord si on suit l'utilisateur
-      const followStatus = await UserService.isFollowingUser(targetUser.id)
+      const followStatus = await UserService.isFollowingUser(targetUser._id)
       
       if (followStatus.is_following) {
-        await UserService.unfollowUser(targetUser.id)
+        await UserService.unfollowUser(targetUser._id)
         toast({
           title: "Désabonnement",
           description: `Vous ne suivez plus @${targetUser.username}`,
         })
       } else {
-        await UserService.followUser(targetUser.id)
+        await UserService.followUser(targetUser._id)
         toast({
           title: "Nouvel abonnement ! 🎉",
           description: `Vous suivez maintenant @${targetUser.username}`,
@@ -71,7 +71,7 @@ export default function DiscoverPage() {
     } finally {
       setFollowingUsers(prev => {
         const newSet = new Set(prev)
-        newSet.delete(targetUser.id)
+        newSet.delete(targetUser._id)
         return newSet
       })
     }
@@ -143,11 +143,11 @@ export default function DiscoverPage() {
           ) : (searchQuery.trim() ? searchResults : suggestions?.suggestions || []).length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {(searchQuery.trim() ? searchResults : suggestions?.suggestions || []).map((user, index) => {
-                const isFollowingUser = followingUsers.has(user.id)
+                const isFollowingUser = followingUsers.has(user._id)
 
                 return (
                   <motion.div
-                    key={user.id}
+                    key={user._id}
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: index * 0.1 }}
@@ -183,7 +183,7 @@ export default function DiscoverPage() {
 
                             <div className="flex gap-2">
                               <Button
-                                onClick={() => router.push(`/profile/${user.id}`)}
+                                onClick={() => router.push(`/profile/${user._id}`)}
                                 variant="outline"
                                 size="sm"
                                 className="flex-1 border-white/20 text-gray-300 hover:text-white"

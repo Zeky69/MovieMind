@@ -14,12 +14,12 @@ import type {
 /**
  * Hook pour récupérer et gérer le profil d'un utilisateur
  */
-export function useUserProfile(userId?: number) {
+export function useUserProfile(userId?: string) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const fetchUser = useCallback(async (id?: number) => {
+  const fetchUser = useCallback(async (id?: string) => {
     if (!id) return
 
     try {
@@ -102,7 +102,7 @@ export function useMyProfile() {
 /**
  * Hook pour gérer les relations de suivi
  */
-export function useFollow(userId: number) {
+export function useFollow(userId: string) {
   const [isFollowing, setIsFollowing] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -156,7 +156,7 @@ export function useFollow(userId: number) {
 /**
  * Hook pour récupérer les statistiques de suivi
  */
-export function useFollowStats(userId: number) {
+export function useFollowStats(userId: string) {
   const [stats, setStats] = useState<FollowStats | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -190,7 +190,7 @@ export function useFollowStats(userId: number) {
 /**
  * Hook pour récupérer les followers/following d'un utilisateur
  */
-export function useUserConnections(userId: number, type: 'followers' | 'following') {
+export function useUserConnections(userId: string, type: 'followers' | 'following') {
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -232,12 +232,12 @@ export function useSuggestedUsers(limit: number = 10) {
   const [suggestions, setSuggestions] = useState<SuggestedUsersResponse | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-
   const fetchSuggestions = useCallback(async () => {
     try {
       setLoading(true)
       setError(null)
       const data = await UserService.getSuggestedUsers(limit)
+      console.log('Suggestions hook received:', data)
       setSuggestions(data)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erreur lors du chargement des suggestions')

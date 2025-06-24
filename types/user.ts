@@ -1,5 +1,5 @@
 export interface User {
-  id: number
+  _id: string
   username: string
   email: string
   first_name?: string
@@ -50,20 +50,20 @@ export interface AuthState {
 }
 
 export interface FollowStats {
-  user_id: number
+  user_id: string
   followers_count: number
   following_count: number
 }
 
 export interface IsFollowingResponse {
   is_following: boolean
-  follower_id: number
-  followed_id: number
+  follower_id: string
+  followed_id: string
 }
 
 export interface MutualFollowsResponse {
-  user_id: number
-  target_user_id: number
+  user_id: string
+  target_user_id: string
   is_following: boolean
   is_followed_by: boolean
   is_mutual: boolean

@@ -18,9 +18,9 @@ import Link from "next/link"
 export default function ProfilePage() {
   const { user, isAuthenticated } = useAuth()
   const { user: profileUser, loading, error } = useMyProfile()
-  const { stats } = useFollowStats(user?.id || 0)
-  const { users: followers } = useUserConnections(user?.id || 0, 'followers')
-  const { users: following } = useUserConnections(user?.id || 0, 'following')
+  const { stats } = useFollowStats(user?._id || "")
+  const { users: followers } = useUserConnections(user?._id || "", 'followers')
+  const { users: following } = useUserConnections(user?._id || "", 'following')
   const router = useRouter()
 
   useEffect(() => {
@@ -268,7 +268,7 @@ export default function ProfilePage() {
                   {following.length > 0 ? (
                     <div className="space-y-4">
                       {following.map((friend) => (
-                        <Card key={friend.id} className="glass border-white/10">
+                        <Card key={friend._id} className="glass border-white/10">
                           <CardContent className="p-4">
                             <div className="flex items-center gap-4">
                               <img
@@ -286,7 +286,7 @@ export default function ProfilePage() {
                                 size="sm"
                                 className="border-purple-400/30 text-purple-300"
                               >
-                                <Link href={`/profile/${friend.id}`}>Voir profil</Link>
+                                <Link href={`/profile/${friend._id}`}>Voir profil</Link>
                               </Button>
                             </div>
                           </CardContent>
@@ -314,7 +314,7 @@ export default function ProfilePage() {
                   {followers.length > 0 ? (
                     <div className="space-y-4">
                       {followers.map((follower) => (
-                        <Card key={follower.id} className="glass border-white/10">
+                        <Card key={follower._id} className="glass border-white/10">
                           <CardContent className="p-4">
                             <div className="flex items-center gap-4">
                               <img
@@ -332,7 +332,7 @@ export default function ProfilePage() {
                                 size="sm"
                                 className="border-purple-400/30 text-purple-300"
                               >
-                                <Link href={`/profile/${follower.id}`}>Voir profil</Link>
+                                <Link href={`/profile/${follower._id}`}>Voir profil</Link>
                               </Button>
                             </div>
                           </CardContent>

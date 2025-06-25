@@ -104,14 +104,19 @@ export default function ChatPage() {
 
     // Envoyer l'action au serveur pour mettre à jour le chat
     try {
-      await api.post(`/chat/${chatId}/action`, {
+      let res = await api.post(`/chat/${chatId}/action`, {
         action,
         movie_id: movie.id,
-        movie_title: movie.title
+        movie_title: movie.title,
+        currentMovieIndex
       })
+      // @ts-ignore
+      setMovies(res.movies || [])
     } catch (error) {
       console.error("Erreur lors de l'envoi de l'action:", error)
     }
+
+
 
     // Passer au film suivant
     if (currentMovieIndex < movies.length - 1) {

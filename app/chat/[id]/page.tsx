@@ -106,7 +106,7 @@ export default function ChatPage() {
     try {
       await api.post(`/chat/${chatId}/action`, {
         action,
-        movie_id: movie.id,
+        movie_id: (typeof movie?.tmdb_id === 'undefined' || typeof movie?.tmdb_id === 'string' ) ? movie.id : movie.tmdb_id,
         movie_title: movie.title,
         currentMovieIndex
       })

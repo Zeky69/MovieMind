@@ -2,6 +2,7 @@ import { getTMDBPosterUrl, getMoviePlaceholderUrl, TMDB_IMAGE_SIZES } from '@/li
 
 export interface Movie {
   id: number
+  tmdb_id: number
   title: string
   original_title: string
   overview: string
